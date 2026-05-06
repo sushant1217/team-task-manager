@@ -13,10 +13,18 @@ router.get('/', auth, async (req, res) => {
       LEFT JOIN users u ON u.id = t.assigned_to
     `;
     const params = [];
+
     if (project_id) {
-      query += ' WHERE t.project_id = $1';
-      params.push(project_id);
+      // ✅ BUG 2 FIX: Members only see tasks assigned to them
+      if (req.user.role === 'Member') {
+        query += ' WHERE t.project_id = $1 AND t.assigned_to = $2';
+        params.push(project_id, req.user.id);
+      } else {
+        query += ' WHERE t.project_id = $1';
+        params.push(project_id);
+      }
     }
+
     query += ' ORDER BY t.created_at DESC';
     const result = await pool.query(query, params);
     res.json(result.rows);

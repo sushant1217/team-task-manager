@@ -31,7 +31,18 @@ router.post('/', auth, async (req, res) => {
       'INSERT INTO projects (name, description, created_by) VALUES ($1, $2, $3) RETURNING *',
       [name, description, req.user.id]
     );
-    res.status(201).json(result.rows[0]);
+    const newProject = result.rows[0];
+
+    // ✅ BUG 1 FIX: Add all existing users to this project automatically
+    const allUsers = await pool.query('SELECT id FROM users');
+    for (const u of allUsers.rows) {
+      await pool.query(
+        'INSERT INTO project_members (project_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [newProject.id, u.id]
+      );
+    }
+
+    res.status(201).json(newProject);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
